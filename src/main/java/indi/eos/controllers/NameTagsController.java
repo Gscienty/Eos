@@ -8,11 +8,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import indi.eos.messages.TagsEntity;
+import indi.eos.annotations.EosAuthenticate;
 
 @RestController
 @RequestMapping("/v2/{name}/tags")
 public class NameTagsController
 {
+  @EosAuthenticate
   @GetMapping(path = "/list", produces = MediaType.APPLICATION_JSON_VALUE) 
   public TagsEntity listAction(
       @PathVariable("name") String name,

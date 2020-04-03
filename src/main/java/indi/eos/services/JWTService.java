@@ -20,4 +20,8 @@ public interface JWTService<T extends JWTPayloadEntity>
   public JWTEntity<T> deserialize(String jwt, byte[] secret, Class<T> payloadClass) throws
     JWTDeserializeException, JsonProcessingException, NoSuchAlgorithmException, InvalidKeyException, UnsupportedEncodingException,
     JWTValidSignatureFailedException, IOException;
+
+  public Boolean valid(String jwt, byte[] secret) throws
+    JWTDeserializeException, JsonProcessingException, NoSuchAlgorithmException, InvalidKeyException, UnsupportedEncodingException,
+    JWTValidSignatureFailedException, IOException;
 }

@@ -78,4 +78,24 @@ public class JWTServiceImpl<T extends JWTPayloadEntity> implements JWTService<T>
 
     return entity;
   }
+
+  public Boolean valid(String jwt, byte[] secret) throws
+    JWTDeserializeException, JsonProcessingException, NoSuchAlgorithmException, InvalidKeyException, UnsupportedEncodingException,
+    JWTValidSignatureFailedException, IOException
+  {
+    String[] splitedJWT = jwt.split("\\.");
+    if (splitedJWT.length != 3)
+    {
+      throw new JWTDeserializeException();
+    }
+    JWTHeaderEntity header = this.mapper.readValue(new String(this.decoder.decode(splitedJWT[0]), "UTF-8"), JWTHeaderEntity.class);
+
+    String encodedString = splitedJWT[0] + "." + splitedJWT[1];
+    Mac mac = Mac.getInstance(header.getAlgorithm());
+    mac.init(new SecretKeySpec(secret, header.getAlgorithm()));
+
+    byte[] calcSignature = mac.doFinal(encodedString.getBytes("UTF-8"));
+    byte[] jwtSignature = this.decoder.decode(splitedJWT[2]);
+    return Arrays.equals(calcSignature, jwtSignature);
+  }
 }
