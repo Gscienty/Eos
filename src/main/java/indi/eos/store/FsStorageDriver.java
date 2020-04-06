@@ -1,30 +1,28 @@
 package indi.eos.store;
 
+import java.util.List;
+import java.util.function.Consumer;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.Reader;
-import java.io.Writer;
-import java.nio.CharBuffer;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
-
-import java.util.function.Consumer;
 
 import indi.eos.entities.StatEntity;
+import indi.eos.exceptions.EosInvalidDigestException;
 import indi.eos.exceptions.EosUnsupportedException;
 import indi.eos.exceptions.InvalidOffsetException;
-import indi.eos.store.BaseStorageDriver;
+import indi.eos.exceptions.InvalidPathException;
+import indi.eos.messages.DigestEntity;
+import indi.eos.store.StorageDriver;
 
-public class FsStorageDriver extends BaseStorageDriver
+public class FsStorageDriver implements StorageDriver
 {
   private static final String DEFAULT_ROOT_DIRECTORY = "/var/lib/registry";
   private final File rootDirectory;
@@ -39,20 +37,18 @@ public class FsStorageDriver extends BaseStorageDriver
     this.rootDirectory = new File(DEFAULT_ROOT_DIRECTORY);
   }
 
-  @Override
   public String getName()
   {
     return "filesystem";
   }
 
-  @Override
-  protected byte[] getContentImplement(String path) throws FileNotFoundException
+  public byte[] getContent(DigestEntity digest) throws EosInvalidDigestException, FileNotFoundException, EosUnsupportedException
   {
-    StatEntity stat = this.getStatImplement(path);
+    StatEntity stat = this.getStat(digest);
     byte[] buf = new byte[stat.getSize().intValue()];
     try
     {
-      InputStream input = this.readerImplement(path, 0);
+      InputStream input = this.reader(digest, 0);
       input.read(buf);
       input.close();
       return buf;
@@ -67,10 +63,9 @@ public class FsStorageDriver extends BaseStorageDriver
     }
   }
 
-  @Override
-  protected void putContentImplement(String path, byte[] content) throws FileNotFoundException, IOException
+  public void putContent(DigestEntity digest, byte[] content) throws EosInvalidDigestException, FileNotFoundException, EosInvalidDigestException, EosUnsupportedException
   {
-    OutputStream output = this.writerImplement(path, false);
+    OutputStream output = this.writer(digest, false);
     try
     {
       output.write(content);
@@ -79,9 +74,9 @@ public class FsStorageDriver extends BaseStorageDriver
     catch (IOException ex) { }
   }
   
-  @Override
-  protected InputStream readerImplement(String path, long offset) throws FileNotFoundException, InvalidOffsetException
+  public InputStream reader(DigestEntity digest, long offset) throws EosInvalidDigestException, FileNotFoundException, InvalidOffsetException, EosUnsupportedException
   {
+    String path = this.digestToPath(digest);
     File file = new File(this.rootDirectory, path);
     if (!file.exists() || !file.isFile())
     {
@@ -99,28 +94,31 @@ public class FsStorageDriver extends BaseStorageDriver
     }
   }
 
-  @Override
-  protected OutputStream writerImplement(String path, boolean append) throws IOException
+  public OutputStream writer(DigestEntity digest, boolean append) throws EosInvalidDigestException, EosUnsupportedException
   {
+    String path = this.digestToPath(digest);
     File file = new File(this.rootDirectory, path);
     if (!file.exists())
     {
-      file.createNewFile();
+      try
+      {
+        file.createNewFile();
+      }
+      catch (IOException ex) { } // TODO
     }
     try
     {
-      return new FileOutputStream(new File(this.rootDirectory, path), append);
+      return new FileOutputStream(file, append);
     }
     catch (FileNotFoundException ex)
     {
-      throw new IOException();
+      return null;
     }
   }
 
-  @Override
-  protected StatEntity getStatImplement(String path) throws FileNotFoundException
+  public StatEntity getStat(DigestEntity digest) throws EosInvalidDigestException, FileNotFoundException, EosUnsupportedException
   {
-    File file = new File(this.rootDirectory, path);
+    File file = new File(this.rootDirectory, this.digestToPath(digest));
     StatEntity stat = new StatEntity();
     stat.setPath(file.getPath());
     stat.setTime(file.lastModified());
@@ -130,8 +128,7 @@ public class FsStorageDriver extends BaseStorageDriver
     return stat;
   }
 
-  @Override
-  protected List<String> getListImplement(String path) throws FileNotFoundException
+  public List<String> getList(String path) throws InvalidPathException, FileNotFoundException, EosUnsupportedException
   {
     File directory = new File(this.rootDirectory, path);
 
@@ -145,8 +142,7 @@ public class FsStorageDriver extends BaseStorageDriver
     return result;
   }
 
-  @Override
-  protected void moveImplement(String sourcePath, String destPath) throws FileNotFoundException
+  public void move(String sourcePath, String destPath) throws InvalidPathException, FileNotFoundException, EosUnsupportedException
   {
     File sourceFile = new File(this.rootDirectory, sourcePath);
     File destFile = new File(this.rootDirectory, destPath);
@@ -158,10 +154,9 @@ public class FsStorageDriver extends BaseStorageDriver
     sourceFile.renameTo(new File(this.rootDirectory, destFile.getParent()));
   }
 
-  @Override
-  protected void deleteImplement(String path) throws FileNotFoundException
+  public void delete(DigestEntity digest) throws EosInvalidDigestException, FileNotFoundException, EosUnsupportedException
   {
-    File file = new File(this.rootDirectory, path);
+    File file = new File(this.rootDirectory, this.digestToPath(digest));
     if (!file.exists())
     {
       throw new FileNotFoundException();
@@ -169,22 +164,19 @@ public class FsStorageDriver extends BaseStorageDriver
     file.delete();
   }
 
-  @Override
-  protected String urlForImplement(String path, Map<String, Object> options) throws FileNotFoundException
+  public String urlFor(String path, Map<String, Object> options) throws InvalidPathException, FileNotFoundException, EosUnsupportedException
   {
-    return "";
+    throw new EosUnsupportedException();
   }
 
-  @Override
-  protected void walkImplement(String path, Consumer<StatEntity> consumer) throws FileNotFoundException
+  public void walk(String path, Consumer<StatEntity> consumer) throws InvalidPathException, FileNotFoundException, EosUnsupportedException
   {
-    List<String> children = this.getListImplement(path);
-    children.forEach(child -> {
-      try
-      {
-        consumer.accept(this.getStatImplement(child));
-      }
-      catch (FileNotFoundException ex) { }
-    });
+    throw new EosUnsupportedException();
+  }
+
+  private String digestToPath(DigestEntity digest)
+  {
+    return String.format("/blobs/%s/%s/%s/data",
+        digest.getAlgorithm(), digest.getHex().substring(0, 2), digest.getHex());
   }
 }

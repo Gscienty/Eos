@@ -11,30 +11,33 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 import indi.eos.entities.StatEntity;
+import indi.eos.messages.DigestEntity;
 import indi.eos.exceptions.InvalidOffsetException;
 import indi.eos.exceptions.InvalidPathException;
+import indi.eos.exceptions.EosInvalidDigestException;
+import indi.eos.exceptions.EosUnsupportedException;
 
 public interface StorageDriver
 {
   String getName();
 
-  byte[] getContent(String path) throws InvalidPathException, FileNotFoundException;
+  byte[] getContent(DigestEntity digest) throws EosInvalidDigestException, FileNotFoundException, EosUnsupportedException;
 
-  void putContent(String path, byte[] content) throws InvalidPathException, FileNotFoundException, IOException;
+  void putContent(DigestEntity digest, byte[] content) throws EosInvalidDigestException, FileNotFoundException, EosUnsupportedException;
 
-  InputStream reader(String path, long offset) throws InvalidPathException, InvalidOffsetException, FileNotFoundException;
+  InputStream reader(DigestEntity digest, long offset) throws EosInvalidDigestException, InvalidOffsetException, FileNotFoundException, EosUnsupportedException;
 
-  OutputStream writer(String path, boolean append) throws InvalidPathException, IOException;
+  OutputStream writer(DigestEntity digest, boolean append) throws EosInvalidDigestException, EosUnsupportedException;
 
-  StatEntity getStat(String path) throws InvalidPathException, FileNotFoundException;
+  StatEntity getStat(DigestEntity digest) throws EosInvalidDigestException, FileNotFoundException, EosUnsupportedException;
 
-  List<String> getList(String path) throws InvalidPathException, FileNotFoundException;
+  List<String> getList(String path) throws InvalidPathException, FileNotFoundException, EosUnsupportedException;
 
-  void move(String sourcePath, String destPath) throws InvalidPathException, FileNotFoundException;
+  void move(String sourcePath, String destPath) throws InvalidPathException, FileNotFoundException, EosUnsupportedException;
 
-  void delete(String path) throws InvalidPathException, FileNotFoundException;
+  void delete(DigestEntity path) throws EosInvalidDigestException, FileNotFoundException, EosUnsupportedException;
 
-  String urlFor(String path, Map<String, Object> options) throws InvalidPathException, FileNotFoundException;
+  String urlFor(String path, Map<String, Object> options) throws InvalidPathException, FileNotFoundException, EosUnsupportedException;
 
-  void walk(String path, Consumer<StatEntity> consumer) throws InvalidPathException, FileNotFoundException;
+  void walk(String path, Consumer<StatEntity> consumer) throws InvalidPathException, FileNotFoundException, EosUnsupportedException;
 }

@@ -11,6 +11,8 @@ import org.springframework.stereotype.Service;
 import indi.eos.entities.StatEntity;
 import indi.eos.exceptions.InvalidPathException;
 import indi.eos.messages.DigestEntity;
+import indi.eos.exceptions.EosInvalidDigestException;
+import indi.eos.exceptions.EosUnsupportedException;
 import indi.eos.services.BlobStore;
 import indi.eos.store.StorageDriver;
 
@@ -18,19 +20,19 @@ import indi.eos.store.StorageDriver;
 public class BlobStoreImpl implements BlobStore
 {
   public byte[] get(StorageDriver driver, DigestEntity digest)
-    throws FileNotFoundException
+    throws FileNotFoundException, EosUnsupportedException
   {
     try
     {
-      return driver.getContent(this.digestToPath(digest));
+      return driver.getContent(digest);
     }
-    catch (InvalidPathException ex)
+    catch (EosInvalidDigestException ex)
     {
       throw new FileNotFoundException();
     }
   }
 
-  public void put(StorageDriver driver, byte[] content) throws IOException
+  public void put(StorageDriver driver, byte[] content) throws IOException, EosUnsupportedException
   {
     DigestEntity digest = new DigestEntity();
     digest.setAlgorithm("sha256");
@@ -51,22 +53,9 @@ public class BlobStoreImpl implements BlobStore
       throw new IOException();
     }
 
-    String path = this.digestToPath(digest);
-
     try
     {
-      driver.getStat(path);
-      throw new IOException();
-    }
-    catch (FileNotFoundException ex) { }
-    catch (InvalidPathException ex)
-    {
-      throw new IOException();
-    }
-
-    try
-    {
-      driver.putContent(path, content);
+      driver.putContent(digest, content);
     }
     catch (Exception ex)
     {
@@ -74,9 +63,15 @@ public class BlobStoreImpl implements BlobStore
     }
   }
 
-  private String digestToPath(DigestEntity digest)
+  public void delete(StorageDriver driver, DigestEntity digest) throws FileNotFoundException, EosUnsupportedException
   {
-    return String.format("/blobs/%s/%s/%s/data",
-        digest.getAlgorithm(), digest.getHex().substring(0, 2), digest.getHex());
+    try
+    {
+      driver.delete(digest);
+    }
+    catch (EosInvalidDigestException ex)
+    {
+      throw new FileNotFoundException();
+    }
   }
 }
