@@ -4,18 +4,18 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class ErrorEntity
 {
-  private Integer code;
+  private String code;
   private String message;
   private Object detail;
 
   @JsonProperty("code")
-  public void setCode(Integer code)
+  public void setCode(String code)
   {
     this.code = code;
   }
 
   @JsonProperty("code")
-  public Integer getCode()
+  public String getCode()
   {
     return this.code;
   }
