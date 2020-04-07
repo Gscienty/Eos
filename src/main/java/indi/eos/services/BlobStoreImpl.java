@@ -16,6 +16,7 @@ import indi.eos.exceptions.EosInvalidDigestException;
 import indi.eos.exceptions.EosUnsupportedException;
 import indi.eos.exceptions.InvalidPathException;
 import indi.eos.messages.DigestEntity;
+import indi.eos.messages.UUIDEntity;
 import indi.eos.services.BlobStore;
 import indi.eos.store.StorageDriver;
 
@@ -35,35 +36,9 @@ public class BlobStoreImpl implements BlobStore
     }
   }
 
-  public void put(StorageDriver driver, byte[] content) throws IOException, EosUnsupportedException
+  public void putPartical(StorageDriver driver, UUIDEntity uuid, InputStream inputStream, boolean created) throws IOException, EosUnsupportedException
   {
-    DigestEntity digest = new DigestEntity();
-    digest.setAlgorithm("sha256");
-    try
-    {
-      MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
-      sha256.update(content);
-      byte[] hash = sha256.digest();
-      StringBuilder sb = new StringBuilder();
-      for (byte b : hash)
-      {
-        sb.append(Integer.toHexString((b & 0xFF) | 0x100).substring(1, 3));
-      }
-      digest.setHex(sb.toString());
-    }
-    catch (NoSuchAlgorithmException ex)
-    {
-      throw new IOException();
-    }
-
-    try
-    {
-      driver.putContent(digest, content);
-    }
-    catch (EosInvalidDigestException ex)
-    {
-      throw new IOException();
-    }
+    FileCopyUtils.copy(inputStream, driver.writer(uuid, created));
   }
 
   public void putMono(StorageDriver driver, DigestEntity digest, InputStream inputStream) throws IOException, EosUnsupportedException

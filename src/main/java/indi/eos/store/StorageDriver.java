@@ -16,6 +16,7 @@ import indi.eos.exceptions.EosUnsupportedException;
 import indi.eos.exceptions.InvalidOffsetException;
 import indi.eos.exceptions.InvalidPathException;
 import indi.eos.messages.DigestEntity;
+import indi.eos.messages.UUIDEntity;
 
 public interface StorageDriver
 {
@@ -28,6 +29,8 @@ public interface StorageDriver
   InputStream reader(DigestEntity digest, long offset) throws EosInvalidDigestException, InvalidOffsetException, FileNotFoundException, EosUnsupportedException;
 
   OutputStream writer(DigestEntity digest, boolean append) throws EosInvalidDigestException, EosUnsupportedException, IOException;
+
+  OutputStream writer(UUIDEntity uuid, boolean created) throws EosUnsupportedException, IOException;
 
   StatEntity getStat(DigestEntity digest) throws EosInvalidDigestException, FileNotFoundException, EosUnsupportedException;
 

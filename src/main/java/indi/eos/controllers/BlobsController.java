@@ -1,5 +1,6 @@
 package indi.eos.controllers;
 
+import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 
@@ -7,6 +8,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -36,6 +38,7 @@ import indi.eos.exceptions.EosInvalidDigestException;
 import indi.eos.exceptions.EosUnsupportedException;
 import indi.eos.exceptions.StorageDriverNotFoundException;
 import indi.eos.messages.DigestEntity;
+import indi.eos.messages.UUIDEntity;
 import indi.eos.services.BlobStore;
 import indi.eos.services.RepositoryService;
 
@@ -74,24 +77,35 @@ public class BlobsController
   @EosAuthorize
   @PostMapping(path = "/uploads/", consumes = MediaType.APPLICATION_OCTET_STREAM_VALUE)
   @ResponseStatus(HttpStatus.CREATED)
-  public void initialUploadAction(HttpServletRequest request)
+  public void initialUploadAction(HttpServletRequest request, HttpServletResponse response)
     throws EosInvalidDigestException, EosUnsupportedException, FileNotFoundException, StorageDriverNotFoundException
   {
     String queryString = request.getQueryString();
-    if (queryString.startsWith("digest="))
+    if (queryString != null && queryString.startsWith("digest="))
     {
       try
       {
-        this.blobStore.putMono(this.repositoryStore.getRepository(this.getRepositoryName()),
+        this.blobStore.putMono(
+            this.repositoryStore.getRepository(this.getRepositoryName()),
             DigestEntity.toDigestEntity(queryString.substring(7)),
             request.getInputStream());
       }
       catch (IOException ex) { }
-
-      return;
     }
-
-    throw new EosUnsupportedException();
+    else
+    {
+      UUIDEntity uuid = UUIDEntity.generateUUID();
+      try
+      {
+        this.blobStore.putPartical(
+            this.repositoryStore.getRepository(this.getRepositoryName()),
+            uuid,
+            new ByteArrayInputStream(new byte[0]),
+            true);
+        response.setHeader("Docker-Upload-UUID", uuid.getUUID());
+      }
+      catch (IOException ex) { }
+    }
   }
 
   private String getRepositoryName() throws StorageDriverNotFoundException

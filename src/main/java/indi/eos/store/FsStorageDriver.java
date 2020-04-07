@@ -20,6 +20,7 @@ import indi.eos.exceptions.EosUnsupportedException;
 import indi.eos.exceptions.InvalidOffsetException;
 import indi.eos.exceptions.InvalidPathException;
 import indi.eos.messages.DigestEntity;
+import indi.eos.messages.UUIDEntity;
 import indi.eos.store.StorageDriver;
 
 public class FsStorageDriver implements StorageDriver
@@ -105,6 +106,25 @@ public class FsStorageDriver implements StorageDriver
     return new FileOutputStream(file, append);
   }
 
+  public OutputStream writer(UUIDEntity uuid, boolean created) throws EosUnsupportedException, IOException
+  {
+    String path = this.uuidToPath(uuid);
+    File file = new File(this.rootDirectory, path);
+    if (!file.exists())
+    {
+      if (!created)
+      {
+        throw new FileNotFoundException();
+      }
+      if (!file.getParentFile().exists())
+      {
+        file.getParentFile().mkdirs();
+      }
+      file.createNewFile();
+    }
+    return new FileOutputStream(file, true);
+  }
+
   public StatEntity getStat(DigestEntity digest) throws EosInvalidDigestException, FileNotFoundException, EosUnsupportedException
   {
     File file = new File(this.rootDirectory, this.digestToPath(digest));
@@ -167,5 +187,10 @@ public class FsStorageDriver implements StorageDriver
   {
     return String.format("/blobs/%s/%s/%s/data",
         digest.getAlgorithm(), digest.getHex().substring(0, 2), digest.getHex());
+  }
+
+  private String uuidToPath(UUIDEntity uuid)
+  {
+    return String.format("/_uploads/%s/data", uuid.getUUID());
   }
 }
