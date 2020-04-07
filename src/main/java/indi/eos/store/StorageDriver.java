@@ -11,11 +11,11 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 import indi.eos.entities.StatEntity;
-import indi.eos.messages.DigestEntity;
-import indi.eos.exceptions.InvalidOffsetException;
-import indi.eos.exceptions.InvalidPathException;
 import indi.eos.exceptions.EosInvalidDigestException;
 import indi.eos.exceptions.EosUnsupportedException;
+import indi.eos.exceptions.InvalidOffsetException;
+import indi.eos.exceptions.InvalidPathException;
+import indi.eos.messages.DigestEntity;
 
 public interface StorageDriver
 {
@@ -23,11 +23,11 @@ public interface StorageDriver
 
   byte[] getContent(DigestEntity digest) throws EosInvalidDigestException, FileNotFoundException, EosUnsupportedException;
 
-  void putContent(DigestEntity digest, byte[] content) throws EosInvalidDigestException, FileNotFoundException, EosUnsupportedException;
+  void putContent(DigestEntity digest, byte[] content) throws EosInvalidDigestException, FileNotFoundException, EosUnsupportedException, IOException;
 
   InputStream reader(DigestEntity digest, long offset) throws EosInvalidDigestException, InvalidOffsetException, FileNotFoundException, EosUnsupportedException;
 
-  OutputStream writer(DigestEntity digest, boolean append) throws EosInvalidDigestException, EosUnsupportedException;
+  OutputStream writer(DigestEntity digest, boolean append) throws EosInvalidDigestException, EosUnsupportedException, IOException;
 
   StatEntity getStat(DigestEntity digest) throws EosInvalidDigestException, FileNotFoundException, EosUnsupportedException;
 

@@ -63,15 +63,11 @@ public class FsStorageDriver implements StorageDriver
     }
   }
 
-  public void putContent(DigestEntity digest, byte[] content) throws EosInvalidDigestException, FileNotFoundException, EosInvalidDigestException, EosUnsupportedException
+  public void putContent(DigestEntity digest, byte[] content) throws EosInvalidDigestException, FileNotFoundException, EosInvalidDigestException, EosUnsupportedException, IOException
   {
     OutputStream output = this.writer(digest, false);
-    try
-    {
-      output.write(content);
-      output.close();
-    }
-    catch (IOException ex) { }
+    output.write(content);
+    output.close();
   }
   
   public InputStream reader(DigestEntity digest, long offset) throws EosInvalidDigestException, FileNotFoundException, InvalidOffsetException, EosUnsupportedException
@@ -94,26 +90,19 @@ public class FsStorageDriver implements StorageDriver
     }
   }
 
-  public OutputStream writer(DigestEntity digest, boolean append) throws EosInvalidDigestException, EosUnsupportedException
+  public OutputStream writer(DigestEntity digest, boolean append) throws EosInvalidDigestException, EosUnsupportedException, IOException
   {
     String path = this.digestToPath(digest);
     File file = new File(this.rootDirectory, path);
     if (!file.exists())
     {
-      try
+      if (!file.getParentFile().exists())
       {
-        file.createNewFile();
+        file.getParentFile().mkdirs();
       }
-      catch (IOException ex) { } // TODO
+      file.createNewFile();
     }
-    try
-    {
-      return new FileOutputStream(file, append);
-    }
-    catch (FileNotFoundException ex)
-    {
-      return null;
-    }
+    return new FileOutputStream(file, append);
   }
 
   public StatEntity getStat(DigestEntity digest) throws EosInvalidDigestException, FileNotFoundException, EosUnsupportedException
