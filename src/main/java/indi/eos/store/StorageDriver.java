@@ -30,9 +30,11 @@ public interface StorageDriver
 
   OutputStream writer(DigestEntity digest, boolean append) throws EosInvalidDigestException, EosUnsupportedException, IOException;
 
-  OutputStream writer(UUIDEntity uuid, boolean created) throws EosUnsupportedException, IOException;
+  OutputStream writer(UUIDEntity uuid, long offset) throws EosUnsupportedException, IOException;
 
   StatEntity getStat(DigestEntity digest) throws EosInvalidDigestException, FileNotFoundException, EosUnsupportedException;
+
+  List<StatEntity> getStat(UUIDEntity uuid) throws FileNotFoundException, EosUnsupportedException;
 
   List<String> getList(String path) throws InvalidPathException, FileNotFoundException, EosUnsupportedException;
 

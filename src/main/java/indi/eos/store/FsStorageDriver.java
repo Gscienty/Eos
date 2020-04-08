@@ -1,8 +1,5 @@
 package indi.eos.store;
 
-import java.util.List;
-import java.util.function.Consumer;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -11,8 +8,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+
+import java.util.function.Consumer;
 
 import indi.eos.entities.StatEntity;
 import indi.eos.exceptions.EosInvalidDigestException;
@@ -46,7 +46,7 @@ public class FsStorageDriver implements StorageDriver
   public byte[] getContent(DigestEntity digest) throws EosInvalidDigestException, FileNotFoundException, EosUnsupportedException
   {
     StatEntity stat = this.getStat(digest);
-    byte[] buf = new byte[stat.getSize().intValue()];
+    byte[] buf = new byte[(int) stat.getSize()];
     try
     {
       InputStream input = this.reader(digest, 0);
@@ -106,16 +106,12 @@ public class FsStorageDriver implements StorageDriver
     return new FileOutputStream(file, append);
   }
 
-  public OutputStream writer(UUIDEntity uuid, boolean created) throws EosUnsupportedException, IOException
+  public OutputStream writer(UUIDEntity uuid, long offset) throws EosUnsupportedException, IOException
   {
     String path = this.uuidToPath(uuid);
-    File file = new File(this.rootDirectory, path);
+    File file = new File(this.rootDirectory, String.format("%s-%d", path, offset));
     if (!file.exists())
     {
-      if (!created)
-      {
-        throw new FileNotFoundException();
-      }
       if (!file.getParentFile().exists())
       {
         file.getParentFile().mkdirs();
@@ -130,11 +126,40 @@ public class FsStorageDriver implements StorageDriver
     File file = new File(this.rootDirectory, this.digestToPath(digest));
     StatEntity stat = new StatEntity();
     stat.setPath(file.getPath());
+    stat.setExists(file.exists());
+    if (!stat.getExists())
+    {
+      return stat;
+    }
     stat.setTime(file.lastModified());
     stat.setSize(file.length());
     stat.setIsDirectory(file.isDirectory());
 
     return stat;
+  }
+
+  public List<StatEntity> getStat(UUIDEntity uuid) throws FileNotFoundException, EosUnsupportedException
+  {
+    File anchoring = new File(this.rootDirectory, this.uuidToPath(uuid));
+    List<StatEntity> result = new LinkedList<>();
+    for (File file : anchoring.getParentFile().listFiles())
+    {
+      StatEntity stat = new StatEntity();
+      stat.setPath(file.getPath());
+      stat.setExists(file.exists());
+      if (!stat.getExists())
+      {
+        result.add(stat);
+        continue;
+      }
+      stat.setTime(file.lastModified());
+      stat.setSize(file.length());
+      stat.setIsDirectory(file.isDirectory());
+
+      result.add(stat);
+      continue;
+    }
+    return result;
   }
 
   public List<String> getList(String path) throws InvalidPathException, FileNotFoundException, EosUnsupportedException
@@ -191,6 +216,6 @@ public class FsStorageDriver implements StorageDriver
 
   private String uuidToPath(UUIDEntity uuid)
   {
-    return String.format("/_uploads/%s/data", uuid.getUUID());
+    return String.format("/_uploads/%s/partical", uuid.getUUID());
   }
 }

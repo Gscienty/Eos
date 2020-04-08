@@ -3,9 +3,10 @@ package indi.eos.entities;
 public class StatEntity
 {
   private String path;
-  private Long size;
-  private Long time;
-  private Boolean isDirectory;
+  private long size;
+  private long time;
+  private boolean isDirectory;
+  private boolean exists;
 
   public void setPath(String path)
   {
@@ -17,33 +18,43 @@ public class StatEntity
     return this.path;
   }
 
-  public void setSize(Long size)
+  public void setSize(long size)
   {
     this.size = size;
   }
 
-  public Long getSize()
+  public long getSize()
   {
     return this.size;
   }
 
-  public void setTime(Long time)
+  public void setTime(long time)
   {
     this.time = time;
   }
 
-  public Long getTime()
+  public long getTime()
   {
     return this.time;
   }
 
-  public void setIsDirectory(Boolean isDirectory)
+  public void setIsDirectory(boolean isDirectory)
   {
     this.isDirectory = isDirectory;
   }
   
-  public Boolean getIsDirectory()
+  public boolean getIsDirectory()
   {
     return this.isDirectory;
+  }
+
+  public void setExists(boolean exists)
+  {
+    this.exists = exists;
+  }
+
+  public boolean getExists()
+  {
+    return this.exists;
   }
 }
