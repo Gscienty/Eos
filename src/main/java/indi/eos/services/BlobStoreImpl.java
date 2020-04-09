@@ -7,6 +7,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.List;
+import java.util.Stack;
 
 import org.springframework.stereotype.Service;
 
@@ -16,6 +18,7 @@ import indi.eos.entities.StatEntity;
 import indi.eos.exceptions.EosInvalidDigestException;
 import indi.eos.exceptions.EosUnsupportedException;
 import indi.eos.exceptions.InvalidPathException;
+import indi.eos.exceptions.InvalidOffsetException;
 import indi.eos.messages.DigestEntity;
 import indi.eos.messages.UUIDEntity;
 import indi.eos.services.BlobStore;
@@ -27,8 +30,7 @@ public class BlobStoreImpl implements BlobStore {
     throws FileNotFoundException, EosUnsupportedException {
     try {
       return driver.getContent(digest);
-    }
-    catch (EosInvalidDigestException ex) {
+    } catch (EosInvalidDigestException ex) {
       throw new FileNotFoundException();
     }
   }
@@ -40,17 +42,54 @@ public class BlobStoreImpl implements BlobStore {
   public void putMono(StorageDriver driver, DigestEntity digest, InputStream inputStream) throws IOException, EosUnsupportedException {
     try {
       FileCopyUtils.copy(inputStream, driver.writer(digest, false));
-    }
-    catch (EosInvalidDigestException ex) {
+    } catch (EosInvalidDigestException ex) {
       throw new IOException();
     }
+  }
+
+  public void mergePartical(StorageDriver driver, UUIDEntity uuid, DigestEntity digest) throws IOException, EosInvalidDigestException, EosUnsupportedException {
+    OutputStream writer = driver.writer(digest, false);
+    List<StatEntity> stats = driver.getStat(uuid);
+    stats.forEach(s -> s.setOrder(Long.parseLong(s.getPath().substring(s.getPath().lastIndexOf("-") + 1))));
+    stats.sort((a, b) -> (int) (a.getOrder() - b.getOrder()));
+
+    class writedRecord {
+      private long writed = 0;
+
+      public void incr(long writed) {
+        this.writed += writed;
+      }
+
+      public long getWrited() {
+        return this.writed;
+      }
+    }
+    writedRecord record = new writedRecord();
+
+    stats.forEach(s -> {
+      if (s.getOrder() + s.getSize() < record.getWrited()) {
+        return;
+      }
+      try {
+        long offset = s.getOrder() + s.getSize() - record.getWrited();
+        long writed = s.getSize() - offset;
+
+        InputStream reader = driver.reader(s, offset);
+        FileCopyUtils.copy(reader, writer);
+
+        record.incr(writed);
+
+        reader.close();
+      } catch (Exception ex) { }
+    });
+
+    writer.close();
   }
 
   public void delete(StorageDriver driver, DigestEntity digest) throws FileNotFoundException, EosUnsupportedException {
     try {
       driver.delete(digest);
-    }
-    catch (EosInvalidDigestException ex) {
+    } catch (EosInvalidDigestException ex) {
       throw new FileNotFoundException();
     }
   }

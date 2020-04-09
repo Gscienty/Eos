@@ -32,6 +32,8 @@ public interface StorageDriver
 
   OutputStream writer(UUIDEntity uuid, long offset) throws EosUnsupportedException, IOException;
 
+  InputStream reader(StatEntity stat, long offset) throws FileNotFoundException, InvalidOffsetException, EosUnsupportedException;
+
   StatEntity getStat(DigestEntity digest) throws EosInvalidDigestException, FileNotFoundException, EosUnsupportedException;
 
   List<StatEntity> getStat(UUIDEntity uuid) throws FileNotFoundException, EosUnsupportedException;

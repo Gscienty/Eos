@@ -3,6 +3,7 @@ package indi.eos.controllers;
 import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -119,29 +121,46 @@ public class BlobsController {
     String range = request.getHeader("Content-Range");
     response.setHeader("Docker-Upload-UUID", uuidEntity.getUUID());
 
-    if (range == null) {
-      try {
-        this.blobStore.putPartical(
-            this.repositoryStore.getRepository(this.getRepositoryName()),
-            uuidEntity,
-            request.getInputStream(),
-            0); 
+    try {
+      if (range == null) {
+        this.uploadChunkAction(request.getInputStream(), uuidEntity, 0);
+      } else {
+        this.uploadChunkAction(request.getInputStream(), uuidEntity, Long.parseLong(range.substring(0, range.indexOf("-"))));
       }
-      catch (IOException ex) { } // TODO 400
-    }
-    else {
-      try {
-        range = range.split("-")[0];
-        this.blobStore.putPartical(
-            this.repositoryStore.getRepository(this.getRepositoryName()),
-            uuidEntity,
-            request.getInputStream(),
-            Long.parseLong(range)); 
-      }
-      catch (IOException ex) { } // TODO 400
-    }
+    } catch (IOException ex) { } // TODO 400
     response.setHeader("Range", String.format("0-%d",
           this.blobStore.getSize(this.repositoryStore.getRepository(this.getRepositoryName()), uuidEntity)));
+  }
+
+  @EosAuthorize
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @PutMapping(path = "/uploads/{uuid}", consumes = MediaType.APPLICATION_OCTET_STREAM_VALUE)
+  public void putBlobUploadAction(
+      @PathVariable("uuid") String uuid,
+      HttpServletRequest request,
+      HttpServletResponse response)
+    throws EosInvalidDigestException, EosUnsupportedException, FileNotFoundException, StorageDriverNotFoundException {
+    UUIDEntity uuidEntity = new UUIDEntity();
+    uuidEntity.setUUID(uuid);
+    try {
+      this.uploadChunkAction(request.getInputStream(), uuidEntity, 0);
+    } catch (IOException ex) { } // TODO 400
+    Map<String, String> query = this.getQuery();
+    if (query == null || query.get("digest") == null) {
+      throw new FileNotFoundException();
+    }
+
+    try {
+      this.blobStore.mergePartical(
+          this.repositoryStore.getRepository(this.getRepositoryName()),
+          uuidEntity, DigestEntity.toDigestEntity(query.get("digest")));
+    } catch (IOException ex) { } // TODO 400
+  }
+
+  private void uploadChunkAction(InputStream inputStream, UUIDEntity uuid, long offset)
+    throws EosInvalidDigestException, EosUnsupportedException, FileNotFoundException, StorageDriverNotFoundException, IOException {
+    this.blobStore.putPartical(
+        this.repositoryStore.getRepository(this.getRepositoryName()), uuid, inputStream, offset); 
   }
 
   private void initialResumeUploadAction(HttpServletResponse response, UUIDEntity uuid)
