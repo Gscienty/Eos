@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
 import indi.eos.exceptions.EosInvalidDigestException;
+import indi.eos.exceptions.EosInvalidParameterException;
 import indi.eos.exceptions.EosUnauthorizedException;
 import indi.eos.exceptions.EosUnsupportedException;
 import indi.eos.exceptions.StorageDriverNotFoundException;
@@ -68,6 +69,18 @@ public class EosExceptionHandler
   @ResponseStatus(HttpStatus.NOT_FOUND)
   @ResponseBody
   public ErrorsEntity handleFileNotFOundException(StorageDriverNotFoundException ex)
+  {
+    ErrorEntity entity = new ErrorEntity();
+    entity.setCode("NAME_UNKNOWN");
+    entity.setMessage("repository name not known to registry.");
+
+    return this.singleErrorResult(entity);
+  }
+
+  @ExceptionHandler(EosInvalidParameterException.class)
+  @ResponseStatus(HttpStatus.BAD_REQUEST)
+  @ResponseBody
+  public ErrorsEntity handleEosInvalidParameterException(EosInvalidParameterException ex)
   {
     ErrorEntity entity = new ErrorEntity();
     entity.setCode("NAME_UNKNOWN");
