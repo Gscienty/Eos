@@ -35,9 +35,7 @@ final class MemoryStorageDriverFileOutputStream extends OutputStream {
   }
 }
 
-interface MemoryStorageDriverFileInfo extends FileInfo {
-  String name();
-}
+interface MemoryStorageDriverFileInfo extends FileInfo { }
 
 class MemoryStorageDriverFile implements MemoryStorageDriverFileInfo {
   private String name;

@@ -45,17 +45,22 @@ import indi.eos.services.RepositoryService;
 import indi.eos.store.StorageDriver;
 import indi.eos.store.FileInfo;
 
+import indi.eos.controllers.RegistryBaseController;
+
 @RestController
 @RequestMapping("/v2/**/blobs")
-public class BlobsController {
+public class BlobsController extends RegistryBaseController {
   private static final Pattern REPOSITORY_NAME_PATTERN = Pattern.compile("^(.*)/blobs/.*$");
   private static final Pattern RANGE_PATTERN = Pattern.compile("^\\d+-\\d+$");
+
+  @Override
+  protected Pattern getRepositoryNamePattern() {
+    return REPOSITORY_NAME_PATTERN;
+  }
 
   @Autowired
   private BlobStore blobStore;
 
-  @Autowired
-  private RepositoryService repositoryStore;
 
   @EosAuthorize
   @GetMapping(path = "/{digest}", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
@@ -116,7 +121,7 @@ public class BlobsController {
   public void getBlobUploadAction(@PathVariable("uuid") String uuid, HttpServletResponse response)
     throws EosInvalidDigestException, EosUnsupportedException, FileNotFoundException, StorageDriverNotFoundException {
     UUIDEntity uuidEntity = UUIDEntity.toUUIDEntity(uuid);
-    FileInfo info = this.blobStore.getInfo(this.repositoryStore.getStorage(this.getRepositoryName(), true), uuidEntity);
+    FileInfo info = this.blobStore.getInfo(this.getStorage(true), uuidEntity);
     RangeEntity range = new RangeEntity();
     range.setEnd(info.size());
 
@@ -132,7 +137,7 @@ public class BlobsController {
     throws EosInvalidDigestException, EosUnsupportedException, FileNotFoundException, StorageDriverNotFoundException, EosInvalidParameterException {
     UUIDEntity uuidEntity = UUIDEntity.toUUIDEntity(uuid);
     String repositoryName = this.getRepositoryName();
-    StorageDriver storage = this.repositoryStore.getStorage(repositoryName, true);
+    StorageDriver storage = this.getStorage(repositoryName, true);
 
     try {
       String range = request.getHeader("Content-Range");
@@ -165,8 +170,8 @@ public class BlobsController {
       throw new EosInvalidDigestException();
     }
     String repositoryName = this.getRepositoryName();
-    StorageDriver uploadStorage = this.repositoryStore.getStorage(repositoryName, true);
-    StorageDriver commitedStorage = this.repositoryStore.getStorage(repositoryName, false);
+    StorageDriver uploadStorage = this.getStorage(repositoryName, true);
+    StorageDriver commitedStorage = this.getStorage(repositoryName, false);
     UUIDEntity uuidEntity = UUIDEntity.toUUIDEntity(uuid);
     DigestEntity digestEntity = DigestEntity.toDigestEntity(digest);
 
@@ -205,39 +210,19 @@ public class BlobsController {
     throws EosInvalidDigestException, EosUnsupportedException, FileNotFoundException, StorageDriverNotFoundException {
     String repositoryName = this.getRepositoryName();
     UUIDEntity uuid = this.repositoryStore.createUploadStorage(repositoryName);
-    StorageDriver uploadStorage = this.repositoryStore.getStorage(repositoryName, true);
+    StorageDriver uploadStorage = this.getStorage(repositoryName, true);
     try {
       this.blobStore.put(uploadStorage, uuid, request.getInputStream());
       DigestEntity calculatedDigest = this.blobStore.calculateDigest(uploadStorage, uuid);
       if (!digest.equals(calculatedDigest)) {
         // TODO
       }
-      this.blobStore.commit(uploadStorage, uuid, this.repositoryStore.getStorage(repositoryName, false), calculatedDigest);
+      this.blobStore.commit(uploadStorage, uuid, this.getStorage(repositoryName, false), calculatedDigest);
 
       response.setStatus(HttpStatus.CREATED.value());
       response.setHeader("Location", String.format("/v2/%s/blobs/%s:%s", repositoryName, calculatedDigest.getAlgorithm(), calculatedDigest.getHex()));
       response.setHeader("Docker-Upload-UUID", uuid.getUUID());
     } catch (IOException ex) { }
-  }
-
-  private StorageDriver getStorage(boolean upload) throws StorageDriverNotFoundException {
-    return this.repositoryStore.getStorage(this.getRepositoryName(), upload);
-  }
-
-  private String getRepositoryName() throws StorageDriverNotFoundException {
-    ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-    HttpServletRequest request = attributes.getRequest();
-
-    String path = request.getAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE).toString();
-    String pattern = request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE).toString();
-    String name = new AntPathMatcher().extractPathWithinPattern(pattern, path);
-
-    Matcher matcher = REPOSITORY_NAME_PATTERN.matcher(name);
-    if (!matcher.find()) {
-      throw new StorageDriverNotFoundException();
-    }
-
-    return matcher.group(1);
   }
 
   private RangeEntity getRange(String range, boolean inclusive) throws EosInvalidParameterException {
@@ -251,24 +236,4 @@ public class BlobsController {
     return rangeEntity;
   }
 
-  private Map<String, String> getQuery() {
-    ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-    HttpServletRequest request = attributes.getRequest();
-    String queryString = request.getQueryString();
-
-    if (queryString == null) {
-      return null;
-    }
-
-    Map<String, String> query = new HashMap<>();
-    for (String item : queryString.split("&")) {
-      int position = item.indexOf("=");
-      if (position == -1) {
-        continue;
-      }
-      query.put(item.substring(0, position), item.substring(position + 1));
-    }
-
-    return query;
-  }
 }

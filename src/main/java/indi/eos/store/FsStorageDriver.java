@@ -24,6 +24,10 @@ class FsStorageDriverFileInfo implements FileInfo {
     this.file = file;
   }
 
+  public String name() {
+    return this.file.getName();
+  }
+
   public String path() {
     return this.file.getPath();
   }
