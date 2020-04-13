@@ -52,25 +52,11 @@ public class BlobStoreImpl implements BlobStore {
 
   public DigestEntity calculateDigest(StorageDriver storage, UUIDEntity uuid) throws FileNotFoundException, EosUnsupportedException {
     try {
-      InputStream input = storage.reader(this.uuidToPath(uuid), 0);
-      MessageDigest md = MessageDigest.getInstance("SHA-256");
-      byte[] buffer = new byte[4096];
-      int len = -1;
-      while ((len = input.read(buffer)) != -1) {
-        md.update(buffer, 0, len);
-      }
-      DigestEntity digest = new DigestEntity();
-      digest.setAlgorithm("sha256");
-      digest.setHex(md.digest());
-      input.close();
-
-      return digest;
+      return DigestEntity.toDigestEntity(storage.reader(this.uuidToPath(uuid), 0));
     } catch (IOException ex) {
       throw new FileNotFoundException();
     } catch (InvalidOffsetException ex) {
       throw new FileNotFoundException();
-    } catch (NoSuchAlgorithmException ex) {
-      throw new EosUnsupportedException();
     }
   }
 

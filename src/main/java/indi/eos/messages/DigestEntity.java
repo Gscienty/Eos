@@ -1,11 +1,25 @@
 package indi.eos.messages;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+
+import java.util.regex.Pattern;
+
 import indi.eos.exceptions.EosInvalidDigestException;
+import indi.eos.exceptions.EosUnsupportedException;
 
 public class DigestEntity
 {
+  private static final Pattern DIGEST_PATTERN = Pattern.compile("^.+:.+$");
+
   private String algorithm;
   private String hex;
+
+  public static boolean isDigest(String reference) {
+    return DIGEST_PATTERN.matcher(reference).matches();
+  }
 
   public static DigestEntity toDigestEntity(String digest) throws EosInvalidDigestException
   {
@@ -24,6 +38,25 @@ public class DigestEntity
     entity.setHex(digestSplited[1]);
 
     return entity;
+  }
+
+  public static DigestEntity toDigestEntity(InputStream input) throws EosUnsupportedException, IOException {
+    try {
+      MessageDigest md = MessageDigest.getInstance("SHA-256");
+      byte[] buffer = new byte[4096];
+      int len = -1;
+      while ((len = input.read(buffer)) != -1) {
+        md.update(buffer, 0, len);
+      }
+      DigestEntity digest = new DigestEntity();
+      digest.setAlgorithm("sha256");
+      digest.setHex(md.digest());
+      input.close();
+
+      return digest;
+    } catch (NoSuchAlgorithmException ex) {
+      throw new EosUnsupportedException();
+    }
   }
 
   public void setAlgorithm(String algorithm)
@@ -60,5 +93,9 @@ public class DigestEntity
 
   public boolean equals(DigestEntity digest) {
     return digest.getAlgorithm().equals(this.getAlgorithm()) && digest.getHex().equals(this.getHex());
+  }
+
+  public String getParameterValue() {
+    return String.format("%s:%s", this.algorithm, this.hex);
   }
 }
