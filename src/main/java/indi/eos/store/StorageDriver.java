@@ -31,6 +31,8 @@ public interface StorageDriver
 
   OutputStream writer(String path, boolean append) throws EosUnsupportedException, IOException;
 
+  OutputStream writer(String path, long offset) throws EosUnsupportedException, IOException;
+
   FileInfo getInfo(String path) throws FileNotFoundException, EosUnsupportedException;
 
   void move(String sourcePath, String destPath) throws FileNotFoundException, EosUnsupportedException;

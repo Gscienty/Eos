@@ -41,8 +41,24 @@ public class DigestEntity
     this.hex = hex;
   }
 
+  public void setHex(byte[] hex) {
+    StringBuilder builder = new StringBuilder();
+    for (byte b : hex) {
+      String tmp = Integer.toHexString(b & 0xff);
+      if (tmp.length() == 1) {
+        builder.append("0");
+      }
+      builder.append(tmp);
+    }
+    this.hex = builder.toString();
+  }
+
   public String getHex()
   {
     return this.hex;
+  }
+
+  public boolean equals(DigestEntity digest) {
+    return digest.getAlgorithm().equals(this.getAlgorithm()) && digest.getHex().equals(this.getHex());
   }
 }

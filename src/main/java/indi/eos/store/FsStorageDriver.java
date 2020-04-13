@@ -58,7 +58,7 @@ public class FsStorageDriver implements StorageDriver {
   }
 
   public byte[] get(String path) throws InvalidOffsetException, IOException, FileNotFoundException, EosUnsupportedException {
-    File file = new File(path);
+    File file = this.normalize(path);
     if (!file.exists()) {
       throw new FileNotFoundException();
     }
@@ -76,12 +76,12 @@ public class FsStorageDriver implements StorageDriver {
   }
 
   public InputStream reader(String path, long offset) throws InvalidOffsetException, FileNotFoundException, EosUnsupportedException {
-    File file = new File(path);
+    File file = this.normalize(path);
     if (!file.exists()) {
       throw new FileNotFoundException();
     }
 
-    InputStream stream = new FileInputStream(path);
+    InputStream stream = new FileInputStream(file);
     try {
       stream.skip(offset);
     } catch (IOException ex) {
@@ -92,7 +92,7 @@ public class FsStorageDriver implements StorageDriver {
   }
 
   public OutputStream writer(String path, boolean append) throws EosUnsupportedException, IOException {
-    File file = new File(path);
+    File file = this.normalize(path);
     if (!file.exists()) {
       if (!file.getParentFile().exists()) {
         file.getParentFile().mkdirs();
@@ -103,20 +103,24 @@ public class FsStorageDriver implements StorageDriver {
     return new FileOutputStream(file, append);
   }
 
+  public OutputStream writer(String path, long offset) throws EosUnsupportedException, IOException {
+    throw new EosUnsupportedException();
+  }
+
   public FileInfo getInfo(String path) throws FileNotFoundException, EosUnsupportedException {
-    return new FsStorageDriverFileInfo(new File(path));
+    return new FsStorageDriverFileInfo(this.normalize(path));
   }
 
   public void move(String sourcePath, String destPath) throws FileNotFoundException, EosUnsupportedException {
-    File file = new File(sourcePath);
+    File file = this.normalize(sourcePath);
     if (!file.exists()) {
       throw new FileNotFoundException();
     }
-    file.renameTo(new File(destPath));
+    file.renameTo(this.normalize(destPath));
   }
 
   public void delete(String path) throws FileNotFoundException, EosUnsupportedException {
-    File file = new File(path);
+    File file = this.normalize(path);
     if (!file.exists()) {
       throw new FileNotFoundException();
     }
@@ -128,7 +132,7 @@ public class FsStorageDriver implements StorageDriver {
   }
 
   public void walk(String path, Consumer<FileInfo> consumer) throws FileNotFoundException, EosUnsupportedException {
-    File file = new File(path);
+    File file = this.normalize(path);
     if (!file.exists()) {
       throw new FileNotFoundException();
     }
@@ -138,5 +142,9 @@ public class FsStorageDriver implements StorageDriver {
     for (File child : file.listFiles()) {
       consumer.accept(new FsStorageDriverFileInfo(child));
     }
+  }
+
+  public File normalize(String path) {
+    return new File(this.rootDirectory, path);
   }
 }

@@ -1,9 +1,7 @@
 package indi.eos.controllers;
 
-import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -25,20 +23,16 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
-import org.springframework.web.util.ContentCachingRequestWrapper;
-import org.springframework.web.util.WebUtils;
 
 import org.springframework.util.AntPathMatcher;
 
 import org.springframework.web.servlet.HandlerMapping;
 
 import indi.eos.annotations.EosAuthorize;
-import indi.eos.entities.StatEntity;
 import indi.eos.entities.RangeEntity;
 import indi.eos.exceptions.EosInvalidDigestException;
 import indi.eos.exceptions.EosInvalidParameterException;
@@ -49,6 +43,7 @@ import indi.eos.messages.UUIDEntity;
 import indi.eos.services.BlobStore;
 import indi.eos.services.RepositoryService;
 import indi.eos.store.StorageDriver;
+import indi.eos.store.FileInfo;
 
 @RestController
 @RequestMapping("/v2/**/blobs")
@@ -69,8 +64,18 @@ public class BlobsController {
       @RequestHeader(name = "Range", required = false) String range,
       HttpServletResponse response)
     throws EosInvalidDigestException, EosUnsupportedException, FileNotFoundException, StorageDriverNotFoundException, EosInvalidParameterException {
-
-    throw new EosUnsupportedException();
+    try {
+      if (range == null) {
+        return this.blobStore.get(this.getStorage(false), DigestEntity.toDigestEntity(digest));
+      } else if (range.startsWith("bytes=")) {
+        range = range.substring(7);
+        return this.blobStore.get(this.getStorage(false), DigestEntity.toDigestEntity(digest), this.getRange(range, false));
+      } else {
+        throw new EosUnsupportedException();
+      }
+    } catch (IOException ex) {
+      throw new FileNotFoundException();
+    }
   }
 
   @EosAuthorize
@@ -78,21 +83,46 @@ public class BlobsController {
   @ResponseStatus(HttpStatus.ACCEPTED)
   public void deleteAction(@PathVariable("digest") String digest)
     throws EosInvalidDigestException, EosUnsupportedException, FileNotFoundException, StorageDriverNotFoundException {
-    throw new EosUnsupportedException();
+    this.blobStore.delete(this.getStorage(false), DigestEntity.toDigestEntity(digest));
+  }
+
+  @EosAuthorize
+  @DeleteMapping(path = "/uploads/{uuid}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void deleteUploadAction(@PathVariable("uuid") String uuid)
+    throws EosInvalidDigestException, EosUnsupportedException, FileNotFoundException, StorageDriverNotFoundException {
+    this.blobStore.delete(this.getStorage(true), UUIDEntity.toUUIDEntity(uuid));
   }
 
   @EosAuthorize
   @PostMapping(path = "/uploads/", consumes = MediaType.APPLICATION_OCTET_STREAM_VALUE)
   public void initialUploadAction(HttpServletRequest request, HttpServletResponse response)
     throws EosInvalidDigestException, EosUnsupportedException, FileNotFoundException, StorageDriverNotFoundException {
-    throw new EosUnsupportedException();
+    Map<String, String> query = this.getQuery();
+    String from = query.get("from");
+    String mount = query.get("mount");
+    String digest = query.get("digest");
+    if (from != null && mount != null) {
+      throw new EosUnsupportedException();
+    } else if (digest != null) {
+      this.initialMonoUploadAction(request, response, DigestEntity.toDigestEntity(digest));
+    } else {
+      this.initialResumeUploadAction(response);
+    }
   }
 
   @EosAuthorize
   @GetMapping(path = "/uploads/{uuid}")
   public void getBlobUploadAction(@PathVariable("uuid") String uuid, HttpServletResponse response)
     throws EosInvalidDigestException, EosUnsupportedException, FileNotFoundException, StorageDriverNotFoundException {
-    throw new EosUnsupportedException();
+    UUIDEntity uuidEntity = UUIDEntity.toUUIDEntity(uuid);
+    FileInfo info = this.blobStore.getInfo(this.repositoryStore.getStorage(this.getRepositoryName(), true), uuidEntity);
+    RangeEntity range = new RangeEntity();
+    range.setEnd(info.size());
+
+    response.setStatus(HttpStatus.NO_CONTENT.value());
+    response.setHeader("Range", range.getParameterValue());
+    response.setHeader("Docker-Upload-UUID", uuidEntity.getUUID());
   }
 
   @EosAuthorize
@@ -100,7 +130,27 @@ public class BlobsController {
   @PatchMapping(path = "/uploads/{uuid}", consumes = MediaType.APPLICATION_OCTET_STREAM_VALUE)
   public void patchBlobUploadAction(@PathVariable("uuid") String uuid, HttpServletRequest request, HttpServletResponse response)
     throws EosInvalidDigestException, EosUnsupportedException, FileNotFoundException, StorageDriverNotFoundException, EosInvalidParameterException {
-    throw new EosUnsupportedException();
+    UUIDEntity uuidEntity = UUIDEntity.toUUIDEntity(uuid);
+    String repositoryName = this.getRepositoryName();
+    StorageDriver storage = this.repositoryStore.getStorage(repositoryName, true);
+
+    try {
+      String range = request.getHeader("Content-Range");
+      if (range == null) {
+        this.blobStore.put(storage, uuidEntity, request.getInputStream());
+      } else {
+        this.blobStore.put(storage, uuidEntity, request.getInputStream(), this.getRange(range, true));
+      }
+    } catch (IOException ex) { }
+
+    FileInfo info = this.blobStore.getInfo(storage, uuidEntity);
+    RangeEntity resultRange = new RangeEntity();
+    resultRange.setEnd(info.size());
+
+    response.setStatus(HttpStatus.NO_CONTENT.value());
+    response.setHeader("Location", String.format("/v2/%s/blobs/uploads/%s", repositoryName, uuidEntity.getUUID()));
+    response.setHeader("Range", resultRange.getParameterValue());
+    response.setHeader("Docker-Upload-UUID", uuidEntity.getUUID());
   }
 
   @EosAuthorize
@@ -109,22 +159,69 @@ public class BlobsController {
   public void putBlobUploadAction(
       @PathVariable("uuid") String uuid, HttpServletRequest request, HttpServletResponse response)
     throws EosInvalidDigestException, EosUnsupportedException, FileNotFoundException, StorageDriverNotFoundException {
-    throw new EosUnsupportedException();
+    Map<String, String> query = this.getQuery();
+    String digest = query.get("digest");
+    if (digest == null) {
+      throw new EosInvalidDigestException();
+    }
+    String repositoryName = this.getRepositoryName();
+    StorageDriver uploadStorage = this.repositoryStore.getStorage(repositoryName, true);
+    StorageDriver commitedStorage = this.repositoryStore.getStorage(repositoryName, false);
+    UUIDEntity uuidEntity = UUIDEntity.toUUIDEntity(uuid);
+    DigestEntity digestEntity = DigestEntity.toDigestEntity(digest);
+
+    FileInfo uploadInfo = this.blobStore.getInfo(uploadStorage, uuidEntity);
+    RangeEntity resultRange = new RangeEntity();
+    resultRange.setStart(uploadInfo.size());
+    try {
+      this.blobStore.put(uploadStorage, uuidEntity, request.getInputStream());
+    } catch (IOException ex) { }
+    resultRange.setEnd(uploadInfo.size() - 1);
+
+    DigestEntity calculatedDigest = this.blobStore.calculateDigest(uploadStorage, uuidEntity);
+    if (!digest.equals(calculatedDigest)) {
+      // TODO
+    }
+    this.blobStore.commit(uploadStorage, uuidEntity, commitedStorage, calculatedDigest);
+
+    response.setStatus(HttpStatus.NO_CONTENT.value());
+    response.setHeader("Location", String.format("/v2/%s/blobs/%s:%s", repositoryName, calculatedDigest.getAlgorithm(), calculatedDigest.getHex()));
+    response.setHeader("Content-Range", resultRange.getParameterValue());
+    response.setHeader("Docker-Upload-UUID", uuidEntity.getUUID());
   }
 
-  private void uploadChunkAction(InputStream inputStream, UUIDEntity uuid, RangeEntity range)
-    throws EosInvalidDigestException, EosUnsupportedException, FileNotFoundException, StorageDriverNotFoundException, IOException {
-    throw new EosUnsupportedException();
-  }
-
-  private void initialResumeUploadAction(HttpServletResponse response, UUIDEntity uuid)
+  private void initialResumeUploadAction(HttpServletResponse response)
     throws EosInvalidDigestException, EosUnsupportedException, FileNotFoundException, StorageDriverNotFoundException {
-    throw new EosUnsupportedException();
+    String repositoryName = this.getRepositoryName();
+    UUIDEntity uuid = this.repositoryStore.createUploadStorage(repositoryName);
+
+    response.setStatus(HttpStatus.ACCEPTED.value());
+    response.setHeader("Location", String.format("/v2/%s/blobs/uploads/%s", repositoryName, uuid.getUUID()));
+    response.setHeader("Range", "0-0");
+    response.setHeader("Docker-Upload-UUID", uuid.getUUID());
   }
 
   private void initialMonoUploadAction(HttpServletRequest request, HttpServletResponse response, DigestEntity digest)
     throws EosInvalidDigestException, EosUnsupportedException, FileNotFoundException, StorageDriverNotFoundException {
-    throw new EosUnsupportedException();
+    String repositoryName = this.getRepositoryName();
+    UUIDEntity uuid = this.repositoryStore.createUploadStorage(repositoryName);
+    StorageDriver uploadStorage = this.repositoryStore.getStorage(repositoryName, true);
+    try {
+      this.blobStore.put(uploadStorage, uuid, request.getInputStream());
+      DigestEntity calculatedDigest = this.blobStore.calculateDigest(uploadStorage, uuid);
+      if (!digest.equals(calculatedDigest)) {
+        // TODO
+      }
+      this.blobStore.commit(uploadStorage, uuid, this.repositoryStore.getStorage(repositoryName, false), calculatedDigest);
+
+      response.setStatus(HttpStatus.CREATED.value());
+      response.setHeader("Location", String.format("/v2/%s/blobs/%s:%s", repositoryName, calculatedDigest.getAlgorithm(), calculatedDigest.getHex()));
+      response.setHeader("Docker-Upload-UUID", uuid.getUUID());
+    } catch (IOException ex) { }
+  }
+
+  private StorageDriver getStorage(boolean upload) throws StorageDriverNotFoundException {
+    return this.repositoryStore.getStorage(this.getRepositoryName(), upload);
   }
 
   private String getRepositoryName() throws StorageDriverNotFoundException {

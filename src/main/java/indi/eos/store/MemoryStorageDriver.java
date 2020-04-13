@@ -24,18 +24,14 @@ import indi.eos.store.StorageDriver;
 final class MemoryStorageDriverFileOutputStream extends OutputStream {
   private MemoryStorageDriverFile file;
 
-  public MemoryStorageDriverFileOutputStream(MemoryStorageDriverFile file) {
+  public MemoryStorageDriverFileOutputStream(MemoryStorageDriverFile file, long offset) {
     this.file = file;
+    this.file.setWritePosition(offset);
   }
 
   @Override
   public void write(int b) throws IOException {
-    throw new IOException();
-  }
-
-  @Override
-  public void write(byte[] b) throws IOException {
-    this.file.writeAt(this.file.size(), b);
+    file.writeByte((byte) b);
   }
 }
 
@@ -47,6 +43,8 @@ class MemoryStorageDriverFile implements MemoryStorageDriverFileInfo {
   private String name;
   private String path;
   private byte[] buffer;
+  private long writePosition;
+  private long legalSize;
   private long modifyTime;
 
   public MemoryStorageDriverFile(String path, String name) {
@@ -54,6 +52,8 @@ class MemoryStorageDriverFile implements MemoryStorageDriverFileInfo {
     this.path = path;
     this.modifyTime = System.currentTimeMillis();
     this.buffer = new byte[0];
+    this.writePosition = 0;
+    this.legalSize = 0;
   }
 
   public String name() {
@@ -65,7 +65,7 @@ class MemoryStorageDriverFile implements MemoryStorageDriverFileInfo {
   }
 
   public long size() {
-    return this.buffer.length;
+    return this.legalSize;
   }
 
   public long modifyTime() {
@@ -77,7 +77,7 @@ class MemoryStorageDriverFile implements MemoryStorageDriverFileInfo {
   }
 
   public byte[] readAt(long offset) throws InvalidOffsetException {
-    if (this.buffer.length < offset) {
+    if (this.legalSize < offset) {
       throw new InvalidOffsetException("memory", this.path, (int) offset);
     }
     byte[] result = new byte[(int) (this.buffer.length - offset)];
@@ -85,22 +85,37 @@ class MemoryStorageDriverFile implements MemoryStorageDriverFileInfo {
     return result;
   }
 
-  public void writeAt(long offset, byte[] content) {
-    if (this.buffer.length < offset + content.length) {
-      byte[] data = new byte[(int) (offset + content.length)];
+  public void setWritePosition(long offset) {
+    this.writePosition = offset;
+  }
+
+  public void writeByte(byte b) {
+    if (this.writePosition >= this.buffer.length) {
+      byte[] data = new byte[(int) this.writePosition + 4096];
       System.arraycopy(this.buffer, 0, data, 0, this.buffer.length);
       this.buffer = data;
     }
-    System.arraycopy(content, 0, this.buffer, (int) offset, content.length);
-    this.modifyTime = System.currentTimeMillis();
+    this.buffer[(int) this.writePosition] = b;
+    this.writePosition++;
+    if (this.writePosition > this.legalSize) {
+      this.legalSize = this.writePosition;
+    }
   }
 
   public void truncate() {
     this.buffer = new byte[0];
+    this.legalSize = 0;
   }
 
   public InputStream reader() throws InvalidOffsetException {
     return new ByteArrayInputStream(this.buffer);
+  }
+
+  public OutputStream writer(long offset) {
+    return new MemoryStorageDriverFileOutputStream(this, offset);
+  }
+  public OutputStream writer() {
+    return new MemoryStorageDriverFileOutputStream(this, this.legalSize);
   }
 }
 
@@ -184,7 +199,7 @@ class MemoryStorageDriverDirectory implements MemoryStorageDriverFileInfo {
       return file;
     }
 
-    MemoryStorageDriverDirectory dir = this.mkdirs(path.substring(index));
+    MemoryStorageDriverDirectory dir = this.mkdirs(path.substring(0, index));
     String name = path.substring(index + 1);
     MemoryStorageDriverFile file = new MemoryStorageDriverFile(String.format("%s/%s", dir.path(), name), name);
     dir.add(file);
@@ -210,7 +225,7 @@ class MemoryStorageDriverDirectory implements MemoryStorageDriverFileInfo {
     MemoryStorageDriverDirectory curDirectory = (MemoryStorageDriverDirectory) n;
 
     for (String component : relative.split("/")) {
-      MemoryStorageDriverDirectory createdDirectory = this.mkdir(component);
+      MemoryStorageDriverDirectory createdDirectory = curDirectory.mkdir(component);
       curDirectory = createdDirectory;
     }
 
@@ -224,7 +239,12 @@ class MemoryStorageDriverDirectory implements MemoryStorageDriverFileInfo {
     if (this.child.get(name) != null) {
       throw new UnexceptedException();
     }
-    MemoryStorageDriverDirectory dir = new MemoryStorageDriverDirectory(String.format("%s/%s", this.path(), name), name);
+    MemoryStorageDriverDirectory dir = null;
+    if (this.path() == "/") {
+      dir = new MemoryStorageDriverDirectory(String.format("%s%s", this.path(), name), name);
+    } else {
+      dir = new MemoryStorageDriverDirectory(String.format("%s/%s", this.path(), name), name);
+    }
     this.add(dir);
     return dir;
   }
@@ -276,7 +296,7 @@ public class MemoryStorageDriver implements StorageDriver {
     try {
       MemoryStorageDriverFile file = this.root.touch(path);
       file.truncate();
-      file.writeAt(0, content);
+      new MemoryStorageDriverFileOutputStream(file, 0).write(content);
     } catch (UnexceptedException ex) {
       throw new IOException();
     }
@@ -284,7 +304,6 @@ public class MemoryStorageDriver implements StorageDriver {
 
   public InputStream reader(String path, long offset) throws IOException ,InvalidOffsetException, FileNotFoundException, EosUnsupportedException {
     path = this.normalize(path);
-
     try {
       MemoryStorageDriverFile file = this.root.touch(path);
       if (offset >= file.size()) {
@@ -305,7 +324,16 @@ public class MemoryStorageDriver implements StorageDriver {
       if (!append) {
         file.truncate();
       }
-      return new MemoryStorageDriverFileOutputStream(file);
+      return file.writer();
+    } catch (UnexceptedException ex) {
+      throw new IOException();
+    }
+  }
+
+  public OutputStream writer(String path, long offset) throws EosUnsupportedException, IOException {
+    path = this.normalize(path);
+    try {
+      return this.root.touch(path).writer(offset);
     } catch (UnexceptedException ex) {
       throw new IOException();
     }

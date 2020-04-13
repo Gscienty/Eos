@@ -13,6 +13,12 @@ public class UUIDEntity
     return result;
   }
 
+  public static UUIDEntity toUUIDEntity(String uuid) {
+    UUIDEntity result = new UUIDEntity();
+    result.setUUID(uuid);
+    return result;
+  }
+
   public void setUUID(String uuid)
   {
     this.uuid = uuid;

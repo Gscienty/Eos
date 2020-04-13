@@ -11,20 +11,27 @@ import indi.eos.entities.RangeEntity;
 import indi.eos.messages.DigestEntity;
 import indi.eos.messages.UUIDEntity;
 import indi.eos.store.StorageDriver;
+import indi.eos.store.FileInfo;
 
 public interface BlobStore
 {
-  byte[] get(StorageDriver driver, DigestEntity digest) throws IOException, FileNotFoundException, EosUnsupportedException;
+  byte[] get(StorageDriver storage, DigestEntity digest) throws IOException, FileNotFoundException, EosUnsupportedException;
 
-  byte[] get(StorageDriver driver, DigestEntity digest, RangeEntity range) throws FileNotFoundException, EosUnsupportedException;
+  byte[] get(StorageDriver storage, DigestEntity digest, RangeEntity range) throws IOException, FileNotFoundException, EosUnsupportedException;
 
-  void put(StorageDriver driver, UUIDEntity uuid, InputStream inputStream, RangeEntity range) throws IOException, EosUnsupportedException;
-  
-  void put(StorageDriver driver, DigestEntity digest, InputStream inputStream) throws IOException, EosUnsupportedException;
+  void put(StorageDriver storage, UUIDEntity uuid, InputStream inputStream) throws IOException, EosUnsupportedException;
 
-  void mergePartical(StorageDriver driver, UUIDEntity uuid, DigestEntity digest) throws IOException, EosInvalidDigestException, EosUnsupportedException;
+  void put(StorageDriver storage, UUIDEntity uuid, InputStream inputStream, RangeEntity range) throws IOException, EosUnsupportedException;
 
-  RangeEntity getRange(StorageDriver driver, UUIDEntity uuid) throws FileNotFoundException, EosUnsupportedException;
+  DigestEntity calculateDigest(StorageDriver storage, UUIDEntity uuid) throws FileNotFoundException, EosUnsupportedException;
 
-  void delete(StorageDriver driver, DigestEntity digest) throws FileNotFoundException, EosUnsupportedException;
+  FileInfo getInfo(StorageDriver storage, UUIDEntity uuid) throws FileNotFoundException, EosUnsupportedException;
+
+  FileInfo getInfo(StorageDriver storage, DigestEntity digest) throws FileNotFoundException, EosUnsupportedException;
+
+  void commit(StorageDriver uploadStorage, UUIDEntity uuid, StorageDriver storageDriver, DigestEntity digest) throws FileNotFoundException, EosUnsupportedException;
+
+  void delete(StorageDriver storage, DigestEntity digest) throws FileNotFoundException, EosUnsupportedException;
+
+  void delete(StorageDriver storage, UUIDEntity uuid) throws FileNotFoundException, EosUnsupportedException;
 }
