@@ -159,7 +159,6 @@ public class BlobsController extends RegistryBaseController {
   }
 
   @EosAuthorize
-  @ResponseStatus(HttpStatus.NO_CONTENT)
   @PutMapping(path = "/uploads/{uuid}", consumes = MediaType.APPLICATION_OCTET_STREAM_VALUE)
   public void putBlobUploadAction(
       @PathVariable("uuid") String uuid, HttpServletRequest request, HttpServletResponse response)
@@ -189,10 +188,9 @@ public class BlobsController extends RegistryBaseController {
     }
     this.blobStore.commit(uploadStorage, uuidEntity, commitedStorage, calculatedDigest);
 
-    response.setStatus(HttpStatus.NO_CONTENT.value());
+    response.setStatus(HttpStatus.CREATED.value());
     response.setHeader("Location", String.format("/v2/%s/blobs/%s:%s", repositoryName, calculatedDigest.getAlgorithm(), calculatedDigest.getHex()));
-    response.setHeader("Content-Range", resultRange.getParameterValue());
-    response.setHeader("Docker-Upload-UUID", uuidEntity.getUUID());
+    response.setHeader("Docker-Content-Digest", calculatedDigest.getParameterValue());
   }
 
   private void initialResumeUploadAction(HttpServletResponse response)

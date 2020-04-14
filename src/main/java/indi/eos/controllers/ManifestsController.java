@@ -62,9 +62,13 @@ public class ManifestsController extends RegistryBaseController {
       digest = this.tagStore.getDigest(storage, reference);
     }
 
-    response.setHeader("Content-Type", this.manifestStore.getMediaType(storage, digest));
-    response.setHeader("Docker-Content-Digest", digest.getParameterValue());
-    return this.manifestStore.get(storage, digest);
+    try {
+      response.setHeader("Content-Type", this.manifestStore.getMediaType(storage, digest));
+      response.setHeader("Docker-Content-Digest", digest.getParameterValue());
+      return this.manifestStore.get(storage, digest);
+    } catch (IOException ex) {
+      throw new EosUnsupportedException();
+    }
   }
 
   @EosAuthorize
@@ -94,7 +98,7 @@ public class ManifestsController extends RegistryBaseController {
         digest = DigestEntity.toDigestEntity(new ByteArrayInputStream(buffer));
         this.tagStore.put(storage, reference, digest);
       }
-      this.manifestStore.put(storage, digest, buffer);
+      this.manifestStore.put(storage, digest, request.getHeader("Content-Type"), buffer);
 
       response.setStatus(HttpStatus.CREATED.value());
       response.setHeader("Location", String.format("/v2/%s/manifests/%s", this.getRepositoryName(), digest.getParameterValue()));

@@ -57,7 +57,7 @@ public abstract class RegistryBaseController {
     String queryString = request.getQueryString();
 
     if (queryString == null) {
-      return null;
+      return new HashMap<>();
     }
 
     Map<String, String> query = new HashMap<>();

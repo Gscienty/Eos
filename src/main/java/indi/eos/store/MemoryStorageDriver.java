@@ -10,7 +10,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Vector;
 
 import java.util.function.Consumer;
 
@@ -35,12 +37,26 @@ final class MemoryStorageDriverFileOutputStream extends OutputStream {
   }
 }
 
+final class MemoryStorageDriverFileInputStream extends InputStream {
+  private MemoryStorageDriverFile file;
+
+  public MemoryStorageDriverFileInputStream(MemoryStorageDriverFile file, long offset) {
+    this.file = file;
+  }
+
+  @Override
+  public int read() throws IOException {
+    return this.file.readByte();
+  }
+}
+
 interface MemoryStorageDriverFileInfo extends FileInfo { }
 
 class MemoryStorageDriverFile implements MemoryStorageDriverFileInfo {
   private String name;
   private String path;
-  private byte[] buffer;
+  private List<byte[]> buffers;
+  private long readPosition;
   private long writePosition;
   private long legalSize;
   private long modifyTime;
@@ -49,7 +65,8 @@ class MemoryStorageDriverFile implements MemoryStorageDriverFileInfo {
     this.name = name;
     this.path = path;
     this.modifyTime = System.currentTimeMillis();
-    this.buffer = new byte[0];
+    this.buffers = new Vector<>();
+    this.readPosition = 0;
     this.writePosition = 0;
     this.legalSize = 0;
   }
@@ -74,39 +91,43 @@ class MemoryStorageDriverFile implements MemoryStorageDriverFileInfo {
     return false;
   }
 
-  public byte[] readAt(long offset) throws InvalidOffsetException {
-    if (this.legalSize < offset) {
-      throw new InvalidOffsetException("memory", this.path, (int) offset);
-    }
-    byte[] result = new byte[(int) (this.buffer.length - offset)];
-    System.arraycopy(this.buffer, (int) offset, result, 0, result.length);
-    return result;
-  }
-
   public void setWritePosition(long offset) {
     this.writePosition = offset;
   }
 
+  public void setReadPosition(long offset) {
+    this.readPosition  = offset;
+  }
+
   public void writeByte(byte b) {
-    if (this.writePosition >= this.buffer.length) {
-      byte[] data = new byte[(int) this.writePosition + 4096];
-      System.arraycopy(this.buffer, 0, data, 0, this.buffer.length);
-      this.buffer = data;
+    long nthBuffer = this.writePosition / 4096;
+    while (nthBuffer >= this.buffers.size()) {
+      this.buffers.add(new byte[4096]);
     }
-    this.buffer[(int) this.writePosition] = b;
+    this.buffers.get((int) nthBuffer)[(int) (this.writePosition % 4096)] = b;
     this.writePosition++;
     if (this.writePosition > this.legalSize) {
       this.legalSize = this.writePosition;
     }
   }
 
+  public int readByte() {
+    if (this.readPosition > this.legalSize) {
+      return -1;
+    }
+    long nthBuffer = this.readPosition / 4096;
+    int result = this.buffers.get((int) nthBuffer)[(int) (this.readPosition % 4096)];
+    this.readPosition++;
+    return result;
+  }
+
   public void truncate() {
-    this.buffer = new byte[0];
+    this.buffers.clear();
     this.legalSize = 0;
   }
 
-  public InputStream reader() throws InvalidOffsetException {
-    return new ByteArrayInputStream(this.buffer);
+  public InputStream reader(long offset) throws InvalidOffsetException {
+    return new MemoryStorageDriverFileInputStream(this, offset);
   }
 
   public OutputStream writer(long offset) {
@@ -286,7 +307,10 @@ public class MemoryStorageDriver implements StorageDriver {
       throw new FileNotFoundException();
     }
     MemoryStorageDriverFile file = (MemoryStorageDriverFile) findedFileInfo;
-    return file.readAt(0);
+    InputStream input = file.reader(0);
+    byte[] result = new byte[(int) file.size()];
+    input.read(result);
+    return result;
   }
 
   public void put(String path, byte[] content) throws EosUnsupportedException, IOException {
@@ -307,8 +331,7 @@ public class MemoryStorageDriver implements StorageDriver {
       if (offset >= file.size()) {
         throw new InvalidOffsetException(this.name(), path, offset);
       }
-      InputStream result = file.reader();
-      result.skip(offset);
+      InputStream result = file.reader(offset);
       return result;
     } catch (UnexceptedException ex) {
       throw new IOException();

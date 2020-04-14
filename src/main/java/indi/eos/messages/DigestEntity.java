@@ -2,9 +2,11 @@ package indi.eos.messages;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
+import java.net.URLDecoder;
 import java.util.regex.Pattern;
 
 import indi.eos.exceptions.EosInvalidDigestException;
@@ -23,6 +25,11 @@ public class DigestEntity
 
   public static DigestEntity toDigestEntity(String digest) throws EosInvalidDigestException
   {
+    try {
+      digest = URLDecoder.decode(digest, "UTF-8");
+    } catch (UnsupportedEncodingException ex) {
+      throw new EosInvalidDigestException();
+    }
     if (digest.indexOf(":") == -1)
     {
       throw new EosInvalidDigestException();
