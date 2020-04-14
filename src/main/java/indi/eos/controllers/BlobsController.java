@@ -212,9 +212,7 @@ public class BlobsController extends RegistryBaseController {
     try {
       this.blobStore.put(uploadStorage, uuid, request.getInputStream());
       DigestEntity calculatedDigest = this.blobStore.calculateDigest(uploadStorage, uuid);
-      if (!digest.equals(calculatedDigest)) {
-        // TODO
-      }
+      if (!digest.equals(calculatedDigest)) { }
       this.blobStore.commit(uploadStorage, uuid, this.getStorage(repositoryName, false), calculatedDigest);
 
       response.setStatus(HttpStatus.CREATED.value());

@@ -61,8 +61,9 @@ public class BlobStoreImpl implements BlobStore {
   }
 
   public void commit(StorageDriver uploadDriver, UUIDEntity uuid, StorageDriver storageDriver, DigestEntity digest) throws FileNotFoundException, EosUnsupportedException {
+    String uploadPath = this.uuidToPath(uuid);
     try {
-      InputStream input = uploadDriver.reader(this.uuidToPath(uuid), 0);
+      InputStream input = uploadDriver.reader(uploadPath, 0);
       OutputStream output = storageDriver.writer(this.digestToPath(digest), false);
       byte[] buffer = new byte[4096];
       int len = -1;
@@ -71,6 +72,8 @@ public class BlobStoreImpl implements BlobStore {
       }
       output.close();
       input.close();
+
+      uploadDriver.delete(uploadPath);
     } catch (IOException ex) {
       throw new FileNotFoundException();
     } catch (InvalidOffsetException ex) {
