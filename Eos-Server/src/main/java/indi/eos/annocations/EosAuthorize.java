@@ -1,4 +1,4 @@
-package indi.eos.annotations;
+package indi.eos.annocations;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

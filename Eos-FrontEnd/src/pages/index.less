@@ -1,0 +1,59 @@
+@--rotate: 8deg;
+@--width: (100vw / cos(@--rotate));
+@--height: (@--width * sin(@--rotate));
+@--top: (100vw * tan(@--rotate));
+@--left: (-@--top * tan(@--rotate));
+
+.pageHeader {
+    z-index: 9;
+}
+
+.eosBanner {
+    position: absolute;
+    overflow: hidden;
+    z-index: 3;
+    left: calc(@--left);
+    width: calc(@--width - @--left);
+    top: 0;
+}
+
+.eosBannerTitle {
+    margin-top: calc(@--top);
+    background: #ffffff;
+    width: calc(@--width);
+    height: calc(@--height);
+    z-index: 3;
+    transform: rotate(-@--rotate);
+    transform-origin: left top 0;
+    box-shadow: -15px 15px 15px -15px #333333;
+    div {
+        transform: rotate(@--rotate);
+        h1 {
+            margin-top: 0;
+            text-align: center;
+            font-size: 72px;
+        }
+
+    }
+}
+
+.eosContent {
+    padding: 270px;
+    position: absolute;
+    top: calc(@--top);
+    left: 0;
+    z-index: 2;
+    background: #096dd9;
+    height: calc(100vh - @--top);
+    width: 100vw;
+
+    div {
+        padding-top: 0;
+        top: 0;
+        margin-top: 0;
+        display: flex;
+        flex-direction: row;
+        justify-content: space-evenly;
+        margin-top: calc(@--top / 2);
+    }
+}

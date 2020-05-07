@@ -3,24 +3,15 @@ package indi.eos.controllers;
 import java.io.FileNotFoundException;
 import java.util.Map;
 
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.servlet.http.HttpServletRequest;
-
 import org.springframework.beans.factory.annotation.Autowired;
-
-import org.springframework.util.AntPathMatcher;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
-import org.springframework.web.servlet.HandlerMapping;
-
-import indi.eos.annotations.EosAuthorize;
+import indi.eos.annocations.EosAuthorize;
 import indi.eos.controllers.RegistryBaseController;
 import indi.eos.exceptions.EosUnsupportedException;
 import indi.eos.exceptions.StorageDriverNotFoundException;
@@ -28,7 +19,7 @@ import indi.eos.messages.TagsEntity;
 import indi.eos.services.TagStore;
 
 @RestController
-@RequestMapping("/v2/**/blobs")
+@RequestMapping("/v2/**/tags")
 public class TagsController extends RegistryBaseController {
   private static final Pattern REPOSITORY_NAME_PATTERN = Pattern.compile("^(.*)/tags/.*$");
 
@@ -41,7 +32,7 @@ public class TagsController extends RegistryBaseController {
   }
 
   @EosAuthorize
-  @GetMapping("/tags/list")
+  @GetMapping("/list")
   public TagsEntity getAction()
     throws EosUnsupportedException, FileNotFoundException, StorageDriverNotFoundException {
     String repositoryName = this.getRepositoryName();

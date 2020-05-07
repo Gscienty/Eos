@@ -2,7 +2,6 @@ package indi.eos.controllers;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
 
 import java.util.regex.Matcher;
@@ -25,14 +24,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
-import org.springframework.util.AntPathMatcher;
-
-import org.springframework.web.servlet.HandlerMapping;
-
-import indi.eos.annotations.EosAuthorize;
 import indi.eos.entities.RangeEntity;
 import indi.eos.exceptions.EosInvalidDigestException;
 import indi.eos.exceptions.EosInvalidParameterException;
@@ -41,10 +33,9 @@ import indi.eos.exceptions.StorageDriverNotFoundException;
 import indi.eos.messages.DigestEntity;
 import indi.eos.messages.UUIDEntity;
 import indi.eos.services.BlobStore;
-import indi.eos.services.RepositoryService;
 import indi.eos.store.StorageDriver;
 import indi.eos.store.FileInfo;
-
+import indi.eos.annocations.EosAuthorize;
 import indi.eos.controllers.RegistryBaseController;
 
 @RestController
@@ -183,7 +174,7 @@ public class BlobsController extends RegistryBaseController {
     resultRange.setEnd(uploadInfo.size() - 1);
 
     DigestEntity calculatedDigest = this.blobStore.calculateDigest(uploadStorage, uuidEntity);
-    if (!digest.equals(calculatedDigest)) {
+    if (!digestEntity.equals(calculatedDigest)) {
       // TODO
     }
     this.blobStore.commit(uploadStorage, uuidEntity, commitedStorage, calculatedDigest);

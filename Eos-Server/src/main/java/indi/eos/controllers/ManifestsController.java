@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import indi.eos.annotations.EosAuthorize;
+import indi.eos.annocations.EosAuthorize;
 import indi.eos.controllers.RegistryBaseController;
 import indi.eos.exceptions.EosInvalidDigestException;
 import indi.eos.exceptions.EosInvalidParameterException;
